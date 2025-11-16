@@ -1,21 +1,46 @@
-services:
-  backend:
-    build: ./backend
-    ports:
-      - "3000:3000"
-    environment:
-      - MONGO_URI=mongodb://mongo:27017/datapulse
-      - RABBIT_URL=amqp://rabbitmq:5672
-    depends_on:
-      - mongo
+version: '3.8'
 
+services:
   mongo:
     image: mongo:6
+    container_name: mongo
     ports:
       - "27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: price-monitoring
+    networks:
+      - price-network
 
   rabbitmq:
     image: rabbitmq:3-management
+    container_name: rabbitmq
     ports:
       - "5672:5672"
-      - "15672:15672"
+      - "15672:15672" # dashboard
+    networks:
+      - price-network
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: backend
+    command: ["npm", "run", "dev"]
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    working_dir: /app
+    ports:
+      - "3000:3000"
+    environment:
+      MONGO_URI: mongodb://mongo:27017/price-monitoring
+      RABBIT_URL: amqp://rabbitmq:5672
+    depends_on:
+      - mongo
+      - rabbitmq
+    networks:
+      - price-network
+
+networks:
+  price-network:
+    driver: bridge
